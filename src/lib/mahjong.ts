@@ -16,15 +16,16 @@ export function calculateScores(game: Game | undefined | null): Record<string, n
     const extraPoints = round.points;
     const basePoints = game.basePoints;
 
-    if (feeder && feeder !== 'self-draw') {
+    if (feeder) {
       // There is a feeder
       const otherLosers = game.playerNames.filter(p => p !== winner && p !== feeder);
       
       let winnerGain = 0;
 
       // Feeder's loss
-      scores[feeder] -= (basePoints + extraPoints);
-      winnerGain += (basePoints + extraPoints);
+      const feederLoss = basePoints + extraPoints;
+      scores[feeder] -= feederLoss;
+      winnerGain += feederLoss;
 
       // Other losers' loss
       otherLosers.forEach(loser => {
@@ -40,11 +41,12 @@ export function calculateScores(game: Game | undefined | null): Record<string, n
       const losers = game.playerNames.filter(p => p !== winner);
       
       let winnerGain = 0;
+      const lossPerPlayer = basePoints + extraPoints;
       
       // All losers' loss
       losers.forEach(loser => {
-        scores[loser] -= basePoints;
-        winnerGain += basePoints;
+        scores[loser] -= lossPerPlayer;
+        winnerGain += lossPerPlayer;
       });
       
       // Winner's gain

@@ -20,17 +20,24 @@ interface AddRoundFormProps {
   game: Game;
   onSubmit: (round: Omit<Round, 'id'>) => void;
   onCancel: () => void;
+  initialWinner?: string;
 }
 
-export default function AddRoundForm({ game, onSubmit, onCancel }: AddRoundFormProps) {
+export default function AddRoundForm({ game, onSubmit, onCancel, initialWinner }: AddRoundFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      winner: '',
-      feeder: '',
+      winner: initialWinner || '',
+      feeder: 'self-draw',
       points: 0,
     },
   });
+
+  useEffect(() => {
+    if (initialWinner) {
+        form.setValue('winner', initialWinner);
+    }
+  }, [initialWinner, form]);
 
   function handleFormSubmit(values: z.infer<typeof formSchema>) {
     onSubmit({
@@ -38,14 +45,22 @@ export default function AddRoundForm({ game, onSubmit, onCancel }: AddRoundFormP
       feeder: values.feeder === 'self-draw' ? undefined : values.feeder,
       points: values.points,
     });
-    form.reset();
+    form.reset({
+        winner: '',
+        feeder: 'self-draw',
+        points: 0,
+    });
   }
   
   const winner = form.watch('winner');
   const availableFeeders = winner ? game.playerNames.filter(p => p !== winner) : game.playerNames;
 
   useEffect(() => {
-    form.setValue('feeder', '');
+    if (winner) {
+        form.setValue('feeder', 'self-draw');
+    } else {
+        form.setValue('feeder', '');
+    }
   }, [winner, form]);
 
   return (
@@ -57,7 +72,7 @@ export default function AddRoundForm({ game, onSubmit, onCancel }: AddRoundFormP
           render={({ field }) => (
             <FormItem>
               <FormLabel>Winner</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
                 <FormControl>
                   <SelectTrigger><SelectValue placeholder="Select a winner" /></SelectTrigger>
                 </FormControl>
