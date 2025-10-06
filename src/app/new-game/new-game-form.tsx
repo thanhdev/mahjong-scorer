@@ -1,0 +1,126 @@
+"use client";
+
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { Button } from '@/components/ui/button';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { useRouter } from 'next/navigation';
+import { Game } from '@/lib/types';
+import { useToast } from '@/hooks/use-toast';
+import { useEffect } from 'react';
+
+const formSchema = z.object({
+  name: z.string().min(1, 'Game name is required'),
+  player1: z.string().min(1, 'Player 1 name is required'),
+  player2: z.string().min(1, 'Player 2 name is required'),
+  player3: z.string().min(1, 'Player 3 name is required'),
+  player4: z.string().min(1, 'Player 4 name is required'),
+  basePoints: z.coerce.number().int().min(1, 'Base points must be at least 1'),
+}).refine(data => {
+    const players = [data.player1, data.player2, data.player3, data.player4];
+    const uniquePlayers = new Set(players.map(p => p.trim().toLowerCase()));
+    return uniquePlayers.size === players.length;
+}, {
+    message: "Player names must be unique.",
+    path: ["player1"], // Shows error under player1 field, but applies to all
+});
+
+const LOCAL_STORAGE_KEY = 'mahjong-scorer-games';
+
+export default function NewGameForm() {
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: '',
+      player1: '',
+      player2: '',
+      player3: '',
+      player4: '',
+      basePoints: 8,
+    },
+  });
+
+  const { errors } = form.formState;
+
+  useEffect(() => {
+    if (errors.player1 && errors.player1.message === "Player names must be unique.") {
+        toast({
+            title: "Invalid Player Names",
+            description: "Each player must have a unique name.",
+            variant: "destructive",
+        })
+    }
+  }, [errors.player1, toast]);
+
+  function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+        const newGame: Game = {
+            id: crypto.randomUUID(),
+            name: values.name.trim(),
+            playerNames: [values.player1.trim(), values.player2.trim(), values.player3.trim(), values.player4.trim()],
+            basePoints: values.basePoints,
+            rounds: [],
+            createdAt: new Date().toISOString(),
+        };
+
+        const storedGames = localStorage.getItem(LOCAL_STORAGE_KEY);
+        const games: Game[] = storedGames ? JSON.parse(storedGames) : [];
+        games.push(newGame);
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(games));
+
+        router.push(`/game/${newGame.id}`);
+    } catch (error) {
+        console.error("Failed to create game", error);
+        toast({
+            title: "Error",
+            description: "Could not create the game. Please try again.",
+            variant: "destructive"
+        })
+    }
+  }
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Game Name</FormLabel>
+              <FormControl>
+                <Input placeholder="Friday Night Mahjong" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField control={form.control} name="player1" render={({ field }) => (<FormItem><FormLabel>Player 1</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+            <FormField control={form.control} name="player2" render={({ field }) => (<FormItem><FormLabel>Player 2</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+            <FormField control={form.control} name="player3" render={({ field }) => (<FormItem><FormLabel>Player 3</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+            <FormField control={form.control} name="player4" render={({ field }) => (<FormItem><FormLabel>Player 4</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+        </div>
+        <FormField
+          control={form.control}
+          name="basePoints"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Base Points</FormLabel>
+              <FormControl>
+                <Input type="number" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <Button type="submit" className="w-full">Create Game</Button>
+      </form>
+    </Form>
+  );
+}
