@@ -85,9 +85,15 @@ export default function GameList() {
                     <p className="font-semibold text-sm mb-2 text-primary/90">Players:</p>
                     <p className="text-muted-foreground text-sm">{game.playerNames.join(', ')}</p>
                 </div>
-                <div className="mt-4">
-                    <p className="font-semibold text-sm mb-2 text-primary/90">Base Points:</p>
-                    <p className="text-muted-foreground text-sm">{game.basePoints}</p>
+                <div className="mt-4 grid grid-cols-2 gap-4">
+                    <div>
+                        <p className="font-semibold text-sm mb-2 text-primary/90">Base Points:</p>
+                        <p className="text-muted-foreground text-sm">{game.basePoints}</p>
+                    </div>
+                    <div>
+                        <p className="font-semibold text-sm mb-2 text-primary/90">Rotate Winds:</p>
+                        <p className="text-muted-foreground text-sm">{game.rotateWinds ? 'On' : 'Off'}</p>
+                    </div>
                 </div>
                 </CardContent>
             </Link>

@@ -18,7 +18,7 @@ const formSchema = z.object({
 
 interface AddRoundFormProps {
   game: Game;
-  onSubmit: (round: Omit<Round, 'id'>) => void;
+  onSubmit: (round: Omit<Round, 'id' | 'type'>) => void;
   onCancel: () => void;
   initialWinner?: string;
 }
@@ -57,11 +57,16 @@ export default function AddRoundForm({ game, onSubmit, onCancel, initialWinner }
 
   useEffect(() => {
     if (winner) {
-        form.setValue('feeder', 'self-draw');
+        // When a winner is selected, reset feeder to default unless it's already a valid choice
+        const currentFeeder = form.getValues('feeder');
+        if(currentFeeder !== 'self-draw' && !availableFeeders.includes(currentFeeder)){
+             form.setValue('feeder', 'self-draw');
+        }
     } else {
         form.setValue('feeder', '');
     }
-  }, [winner, form]);
+  }, [winner, form, availableFeeders]);
+
 
   return (
     <Form {...form}>

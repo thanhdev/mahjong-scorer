@@ -1,4 +1,4 @@
-import type { Game } from './types';
+import type { Game, GameRound } from './types';
 
 export function calculateScores(game: Game | undefined | null): Record<string, number> {
   const scores: Record<string, number> = {};
@@ -11,6 +11,18 @@ export function calculateScores(game: Game | undefined | null): Record<string, n
   });
 
   game.rounds.forEach(round => {
+    if (round.type === 'penalty') {
+      const { penalizedPlayer, points } = round;
+      const penaltyAmount = 3 * points;
+      scores[penalizedPlayer] -= penaltyAmount * (game.playerNames.length - 1);
+      game.playerNames.forEach(p => {
+        if (p !== penalizedPlayer) {
+          scores[p] += penaltyAmount;
+        }
+      });
+      return;
+    }
+
     const winner = round.winner;
     const feeder = round.feeder;
     const extraPoints = round.points;
@@ -55,4 +67,34 @@ export function calculateScores(game: Game | undefined | null): Record<string, n
   });
 
   return scores;
+}
+
+export function getWindsForRound(game: Game, roundIndex: number): Record<string, string> {
+    const windLabels = ['East', 'South', 'West', 'North'];
+    const initialDealer = game.playerNames[0];
+    let dealerIndex = 0;
+
+    if (game.rotateWinds) {
+        let effectiveRound = 0;
+        for (let i = 0; i < roundIndex; i++) {
+            const round = game.rounds[i];
+            if (round.type === 'win') {
+                const currentDealerIndex = (dealerIndex + game.playerNames.length) % game.playerNames.length;
+                const currentDealer = game.playerNames[currentDealerIndex];
+                if (round.winner !== currentDealer) {
+                    dealerIndex++;
+                }
+            } else {
+                // Penalties don't affect wind rotation
+            }
+        }
+    }
+    
+    const winds: Record<string, string> = {};
+    for (let i = 0; i < game.playerNames.length; i++) {
+        const playerIndex = (dealerIndex + i) % game.playerNames.length;
+        const playerName = game.playerNames[playerIndex];
+        winds[playerName] = windLabels[i];
+    }
+    return winds;
 }

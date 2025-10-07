@@ -11,6 +11,7 @@ import { Game } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect } from 'react';
 import { format } from 'date-fns';
+import { Switch } from '@/components/ui/switch';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Game name is required'),
@@ -19,6 +20,7 @@ const formSchema = z.object({
   player3: z.string().min(1, 'Player 3 name is required'),
   player4: z.string().min(1, 'Player 4 name is required'),
   basePoints: z.coerce.number().int().min(1, 'Base points must be at least 1'),
+  rotateWinds: z.boolean(),
 }).refine(data => {
     const players = [data.player1, data.player2, data.player3, data.player4];
     const uniquePlayers = new Set(players.map(p => p.trim().toLowerCase()));
@@ -43,6 +45,7 @@ export default function NewGameForm() {
       player3: '',
       player4: '',
       basePoints: 8,
+      rotateWinds: true,
     },
   });
 
@@ -57,6 +60,7 @@ export default function NewGameForm() {
                 form.setValue('player2', lastGame.playerNames[1]);
                 form.setValue('player3', lastGame.playerNames[2]);
                 form.setValue('player4', lastGame.playerNames[3]);
+                form.setValue('rotateWinds', lastGame.rotateWinds);
             }
         }
     } catch (error) {
@@ -83,6 +87,7 @@ export default function NewGameForm() {
             name: values.name.trim(),
             playerNames: [values.player1.trim(), values.player2.trim(), values.player3.trim(), values.player4.trim()],
             basePoints: values.basePoints,
+            rotateWinds: values.rotateWinds,
             rounds: [],
             createdAt: new Date().toISOString(),
         };
@@ -125,19 +130,36 @@ export default function NewGameForm() {
             <FormField control={form.control} name="player3" render={({ field }) => (<FormItem><FormLabel>Player 3 (West)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
             <FormField control={form.control} name="player4" render={({ field }) => (<FormItem><FormLabel>Player 4 (North)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
         </div>
-        <FormField
-          control={form.control}
-          name="basePoints"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Base Points</FormLabel>
-              <FormControl>
-                <Input type="number" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <div className="flex justify-between items-center gap-8">
+            <FormField
+            control={form.control}
+            name="basePoints"
+            render={({ field }) => (
+                <FormItem className="flex-1">
+                <FormLabel>Base Points</FormLabel>
+                <FormControl>
+                    <Input type="number" {...field} />
+                </FormControl>
+                <FormMessage />
+                </FormItem>
+            )}
+            />
+            <FormField
+            control={form.control}
+            name="rotateWinds"
+            render={({ field }) => (
+                <FormItem className="flex flex-col items-start gap-2 pt-6">
+                    <FormLabel>Rotate Winds Automatically</FormLabel>
+                    <FormControl>
+                        <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        />
+                    </FormControl>
+                </FormItem>
+            )}
+            />
+        </div>
         <Button type="submit" className="w-full">Create Game</Button>
       </form>
     </Form>

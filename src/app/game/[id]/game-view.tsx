@@ -2,23 +2,23 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Game, Round } from '@/lib/types';
-import { calculateScores } from '@/lib/mahjong';
+import { Game, GameRound, PenaltyRound, Round } from '@/lib/types';
+import { calculateScores, getWindsForRound } from '@/lib/mahjong';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { PlusCircle, Trash2, ArrowLeft } from 'lucide-react';
+import { PlusCircle, Trash2, ArrowLeft, ShieldAlert } from 'lucide-react';
 import AddRoundForm from './add-round-form';
+import AddPenaltyForm from './add-penalty-form';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
 
 const LOCAL_STORAGE_KEY = 'mahjong-scorer-games';
-
-const WIND_LABELS = ['East', 'South', 'West', 'North'];
 
 export default function GameView({ gameId }: { gameId: string }) {
   const router = useRouter();
@@ -26,6 +26,7 @@ export default function GameView({ gameId }: { gameId: string }) {
   const [game, setGame] = useState<Game | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAddRoundOpen, setAddRoundOpen] = useState(false);
+  const [isAddPenaltyOpen, setAddPenaltyOpen] = useState(false);
   const [selectedWinner, setSelectedWinner] = useState<string | undefined>(undefined);
 
   useEffect(() => {
@@ -35,7 +36,13 @@ export default function GameView({ gameId }: { gameId: string }) {
         const games: Game[] = JSON.parse(storedGames);
         const currentGame = games.find(g => g.id === gameId);
         if (currentGame) {
-          setGame(currentGame);
+          // Quick migration for old game data
+          const migratedGame = {
+              ...currentGame,
+              rotateWinds: currentGame.rotateWinds ?? true,
+              rounds: currentGame.rounds.map(r => ({...r, type: (r as any).type || 'win'}))
+          }
+          setGame(migratedGame);
         } else {
           router.replace('/'); 
         }
@@ -52,6 +59,8 @@ export default function GameView({ gameId }: { gameId: string }) {
   }, [gameId, router, toast]);
 
   const scores = useMemo(() => calculateScores(game), [game]);
+  const currentWinds = useMemo(() => game ? getWindsForRound(game, game.rounds.length) : {}, [game]);
+
 
   const updateGameInStorage = (updatedGame: Game) => {
     try {
@@ -69,13 +78,22 @@ export default function GameView({ gameId }: { gameId: string }) {
     }
   };
 
-  const handleAddRound = (newRound: Omit<Round, 'id'>) => {
+  const handleAddRound = (newRoundData: Omit<Round, 'id' | 'type'>) => {
     if (!game) return;
-    const updatedGame = { ...game, rounds: [...game.rounds, { ...newRound, id: crypto.randomUUID() }] };
+    const newRound: Round = { ...newRoundData, id: crypto.randomUUID(), type: 'win' };
+    const updatedGame = { ...game, rounds: [...game.rounds, newRound] };
     updateGameInStorage(updatedGame);
     setAddRoundOpen(false);
     setSelectedWinner(undefined);
   };
+  
+  const handleAddPenalty = (newPenaltyData: Omit<PenaltyRound, 'id' | 'type'>) => {
+    if (!game) return;
+    const newPenalty: PenaltyRound = { ...newPenaltyData, id: crypto.randomUUID(), type: 'penalty' };
+    const updatedGame = { ...game, rounds: [...game.rounds, newPenalty] };
+    updateGameInStorage(updatedGame);
+    setAddPenaltyOpen(false);
+  }
 
   const handleDeleteRound = (roundId: string) => {
     if (!game) return;
@@ -88,9 +106,11 @@ export default function GameView({ gameId }: { gameId: string }) {
     setAddRoundOpen(true);
   }
 
-  const handleDialogClose = () => {
-    setAddRoundOpen(false);
-    setSelectedWinner(undefined);
+  const handleDialogClose = (setter: React.Dispatch<React.SetStateAction<boolean>>) => {
+    setter(false);
+    if(setter === setAddRoundOpen) {
+        setSelectedWinner(undefined);
+    }
   }
   
   if (loading || !game) {
@@ -103,7 +123,12 @@ export default function GameView({ gameId }: { gameId: string }) {
     );
   }
 
-  const [playerEast, playerSouth, playerWest, playerNorth] = game.playerNames;
+  const playerOrder = [
+    game.playerNames.find(p => currentWinds[p] === 'West'),
+    game.playerNames.find(p => currentWinds[p] === 'North'),
+    game.playerNames.find(p => currentWinds[p] === 'East'),
+    game.playerNames.find(p => currentWinds[p] === 'South'),
+  ].filter(Boolean) as string[];
 
   return (
     <div className="space-y-8 animate-in fade-in-50">
@@ -114,17 +139,24 @@ export default function GameView({ gameId }: { gameId: string }) {
         <div className="flex justify-between items-start">
             <div>
                 <h1 className="text-3xl font-bold font-headline">{game.name}</h1>
-                <p className="text-muted-foreground">Base Points: {game.basePoints}</p>
+                <p className="text-muted-foreground">Base Points: {game.basePoints} / Automatic Wind Rotation: {game.rotateWinds ? 'On' : 'Off'}</p>
             </div>
-             <Dialog open={isAddRoundOpen} onOpenChange={handleDialogClose}>
-                <DialogTrigger asChild>
-                    <Button><PlusCircle className="mr-2 h-4 w-4" />Record Round</Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader><DialogTitle>Record New Round</DialogTitle><DialogDescription>Enter the details of the winning hand.</DialogDescription></DialogHeader>
-                    <AddRoundForm game={game} onSubmit={handleAddRound} onCancel={handleDialogClose} initialWinner={selectedWinner} />
-                </DialogContent>
-            </Dialog>
+            <div className='flex gap-2'>
+                <Dialog open={isAddPenaltyOpen} onOpenChange={() => handleDialogClose(setAddPenaltyOpen)}>
+                    <DialogTrigger asChild><Button variant="outline"><ShieldAlert className="mr-2 h-4 w-4" />Penalty</Button></DialogTrigger>
+                    <DialogContent>
+                        <DialogHeader><DialogTitle>Record Penalty</DialogTitle><DialogDescription>Select the player to be penalized.</DialogDescription></DialogHeader>
+                        <AddPenaltyForm game={game} onSubmit={handleAddPenalty} onCancel={() => handleDialogClose(setAddPenaltyOpen)} />
+                    </DialogContent>
+                </Dialog>
+                <Dialog open={isAddRoundOpen} onOpenChange={() => handleDialogClose(setAddRoundOpen)}>
+                    <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4" />Record Round</Button></DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader><DialogTitle>Record New Round</DialogTitle><DialogDescription>Enter the details of the winning hand.</DialogDescription></DialogHeader>
+                        <AddRoundForm game={game} onSubmit={handleAddRound} onCancel={() => handleDialogClose(setAddRoundOpen)} initialWinner={selectedWinner} />
+                    </DialogContent>
+                </Dialog>
+            </div>
         </div>
       </div>
 
@@ -132,9 +164,9 @@ export default function GameView({ gameId }: { gameId: string }) {
             <CardHeader><CardTitle>Player Scores</CardTitle></CardHeader>
             <CardContent>
                 <div className="grid grid-cols-3 grid-rows-3 gap-4 aspect-square max-w-lg mx-auto">
-                    {[playerWest, playerNorth, playerEast, playerSouth].map((name, index) => {
+                    {playerOrder.map((name, index) => {
                         const score = scores[name];
-                        const wind = [WIND_LABELS[2], WIND_LABELS[3], WIND_LABELS[0], WIND_LABELS[1]][index];
+                        const wind = currentWinds[name];
                         const gridPosition = [
                             'col-start-1 row-start-2', // West
                             'col-start-2 row-start-3', // North (bottom)
@@ -168,14 +200,24 @@ export default function GameView({ gameId }: { gameId: string }) {
           {game.rounds.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
-                <TableHeader><TableRow><TableHead>#</TableHead><TableHead>Winner</TableHead><TableHead>Feeder</TableHead><TableHead>Points</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead>#</TableHead><TableHead>Type</TableHead><TableHead>Details</TableHead><TableHead>Points</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
                 <TableBody>
                   {[...game.rounds].reverse().map((round, index) => (
                     <TableRow key={round.id}>
-                      <TableCell>{game.rounds.length - index}</TableCell>
-                      <TableCell>{round.winner}</TableCell>
-                      <TableCell>{round.feeder || 'Self-draw'}</TableCell>
-                      <TableCell>{round.points}</TableCell>
+                        <TableCell>{game.rounds.length - index}</TableCell>
+                        {round.type === 'win' ? (
+                            <>
+                                <TableCell><Badge variant="secondary">Win</Badge></TableCell>
+                                <TableCell><b>{round.winner}</b> won from {round.feeder || 'Self-draw'}</TableCell>
+                                <TableCell>{round.points}</TableCell>
+                            </>
+                        ) : (
+                            <>
+                                <TableCell><Badge variant="destructive">Penalty</Badge></TableCell>
+                                <TableCell><b>{round.penalizedPlayer}</b> was penalized</TableCell>
+                                <TableCell>{round.points} (x3)</TableCell>
+                            </>
+                        )}
                       <TableCell className="text-right">
                         <AlertDialog>
                           <AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger>
