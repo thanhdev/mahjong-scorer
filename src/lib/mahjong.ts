@@ -1,6 +1,50 @@
 
 import type { Game, GameRound } from './types';
 
+export function calculateRoundScoreDelta(round: GameRound, playerNames: string[], basePoints: number): Record<string, number> {
+  const scores: Record<string, number> = {};
+  playerNames.forEach(name => {
+    scores[name] = 0;
+  });
+
+  if (round.type === 'penalty') {
+    const { penalizedPlayer, points } = round;
+    const penaltyAmount = points;
+    scores[penalizedPlayer] -= penaltyAmount * (playerNames.length - 1);
+    playerNames.forEach(p => {
+      if (p !== penalizedPlayer) {
+        scores[p] += penaltyAmount;
+      }
+    });
+  } else { // 'win'
+    const { winner, feeder, points: extraPoints } = round;
+
+    if (feeder) { // There is a feeder
+      const feederLoss = basePoints + extraPoints;
+      scores[feeder] -= feederLoss;
+      scores[winner] += feederLoss;
+
+      playerNames.forEach(loser => {
+        if (loser !== winner && loser !== feeder) {
+          scores[loser] -= basePoints;
+          scores[winner] += basePoints;
+        }
+      });
+    } else { // Self-draw (zimo)
+      const lossPerPlayer = basePoints + extraPoints;
+      playerNames.forEach(loser => {
+        if (loser !== winner) {
+          scores[loser] -= lossPerPlayer;
+          scores[winner] += lossPerPlayer;
+        }
+      });
+    }
+  }
+
+  return scores;
+}
+
+
 export function calculateScores(game: Game | undefined | null): Record<string, number> {
   const scores: Record<string, number> = {};
   if (!game) {

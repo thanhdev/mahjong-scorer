@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Game, GameRound, PenaltyRound, Round } from '@/lib/types';
-import { calculateScores, getWindsForRound } from '@/lib/mahjong';
+import { calculateScores, getWindsForRound, calculateRoundScoreDelta } from '@/lib/mahjong';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const LOCAL_STORAGE_KEY = 'mahjong-scorer-games';
 
@@ -61,6 +62,11 @@ export default function GameView({ gameId }: { gameId: string }) {
 
   const scores = useMemo(() => calculateScores(game), [game]);
   const currentWinds = useMemo(() => game ? getWindsForRound(game, game.rounds.length) : {}, [game]);
+  
+  const scoreHistory = useMemo(() => {
+    if (!game) return [];
+    return game.rounds.map(round => calculateRoundScoreDelta(round, game.playerNames, game.basePoints));
+  }, [game]);
 
 
   const updateGameInStorage = (updatedGame: Game) => {
@@ -128,7 +134,6 @@ export default function GameView({ gameId }: { gameId: string }) {
     );
   }
 
-  // Player positions are fixed based on their initial order.
   const playerPositions: { [key: string]: string } = {
     [game.playerNames[0]]: 'col-start-3 row-start-2', // East
     [game.playerNames[1]]: 'col-start-2 row-start-3', // South
@@ -195,47 +200,94 @@ export default function GameView({ gameId }: { gameId: string }) {
         </Card>
 
 
-      <Card>
-        <CardHeader><CardTitle>Round History</CardTitle></CardHeader>
-        <CardContent>
-          {game.rounds.length > 0 ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader><TableRow><TableHead>#</TableHead><TableHead>Type</TableHead><TableHead>Details</TableHead><TableHead>Points</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
-                <TableBody>
-                  {[...game.rounds].reverse().map((round, index) => (
-                    <TableRow key={round.id}>
-                        <TableCell>{game.rounds.length - index}</TableCell>
-                        {round.type === 'win' ? (
-                            <>
-                                <TableCell><Badge variant="secondary">Win</Badge></TableCell>
-                                <TableCell><b>{round.winner}</b> won from {round.feeder || 'Self-draw'}</TableCell>
-                                <TableCell>{round.points}</TableCell>
-                            </>
-                        ) : (
-                            <>
-                                <TableCell><Badge variant="destructive">Penalty</Badge></TableCell>
-                                <TableCell><b>{round.penalizedPlayer}</b> was penalized</TableCell>
-                                <TableCell>{round.points}</TableCell>
-                            </>
-                        )}
-                      <TableCell className="text-right">
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger>
-                          <AlertDialogContent>
-                              <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will delete the round record and recalculate all scores. This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
-                              <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteRound(round.id)}>Delete</AlertDialogAction></AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (<p className="text-muted-foreground text-center py-4">No rounds recorded yet.</p>)}
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="history">
+        <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="history">Round History</TabsTrigger>
+            <TabsTrigger value="scores">Score History</TabsTrigger>
+        </TabsList>
+        <TabsContent value="history">
+            <Card>
+            <CardContent className="pt-6">
+              {game.rounds.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader><TableRow><TableHead>#</TableHead><TableHead>Type</TableHead><TableHead>Details</TableHead><TableHead>Points</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+                    <TableBody>
+                      {[...game.rounds].reverse().map((round, index) => (
+                        <TableRow key={round.id}>
+                            <TableCell>{game.rounds.length - index}</TableCell>
+                            {round.type === 'win' ? (
+                                <>
+                                    <TableCell><Badge variant="secondary">Win</Badge></TableCell>
+                                    <TableCell><b>{round.winner}</b> won from {round.feeder || 'Self-draw'}</TableCell>
+                                    <TableCell>{round.points}</TableCell>
+                                </>
+                            ) : (
+                                <>
+                                    <TableCell><Badge variant="destructive">Penalty</Badge></TableCell>
+                                    <TableCell><b>{round.penalizedPlayer}</b> was penalized</TableCell>
+                                    <TableCell>{round.points}</TableCell>
+                                </>
+                            )}
+                          <TableCell className="text-right">
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger>
+                              <AlertDialogContent>
+                                  <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will delete the round record and recalculate all scores. This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+                                  <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteRound(round.id)}>Delete</AlertDialogAction></AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (<p className="text-muted-foreground text-center py-4">No rounds recorded yet.</p>)}
+            </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="scores">
+            <Card>
+                <CardContent className="pt-6">
+                    {game.rounds.length > 0 ? (
+                    <div className="overflow-x-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>#</TableHead>
+                                {game.playerNames.map(name => <TableHead key={name} className="text-center">{name}</TableHead>)}
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {scoreHistory.map((delta, index) => (
+                                <TableRow key={game.rounds[index].id}>
+                                    <TableCell>{index + 1}</TableCell>
+                                    {game.playerNames.map(name => (
+                                        <TableCell key={name} className={cn("text-center font-mono", delta[name] > 0 ? 'text-primary' : delta[name] < 0 ? 'text-destructive' : 'text-muted-foreground')}>
+                                            {delta[name] > 0 ? `+${delta[name]}` : delta[name]}
+                                        </TableCell>
+                                    ))}
+                                </TableRow>
+                            ))}
+                            <TableRow className="bg-muted/50 font-bold">
+                                <TableCell>Total</TableCell>
+                                {game.playerNames.map(name => (
+                                    <TableCell key={name} className={cn("text-center", scores[name] > 0 ? 'text-primary' : scores[name] < 0 ? 'text-destructive' : 'text-muted-foreground')}>
+                                        {scores[name]}
+                                    </TableCell>
+                                ))}
+                            </TableRow>
+                        </TableBody>
+                    </Table>
+                    </div>
+                    ) : (
+                        <p className="text-muted-foreground text-center py-4">No rounds to show scores for.</p>
+                    )}
+                </CardContent>
+            </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
