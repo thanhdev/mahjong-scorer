@@ -106,11 +106,15 @@ export default function GameView({ gameId }: { gameId: string }) {
     setAddRoundOpen(true);
   }
 
-  const handleDialogClose = (setter: React.Dispatch<React.SetStateAction<boolean>>) => {
-    setter(false);
-    if(setter === setAddRoundOpen) {
+  const handleRoundDialogClose = (open: boolean) => {
+    setAddRoundOpen(open);
+    if(!open) {
         setSelectedWinner(undefined);
     }
+  }
+
+  const handlePenaltyDialogClose = (open: boolean) => {
+    setAddPenaltyOpen(open);
   }
   
   if (loading || !game) {
@@ -142,18 +146,18 @@ export default function GameView({ gameId }: { gameId: string }) {
                 <p className="text-muted-foreground">Base Points: {game.basePoints} / Automatic Wind Rotation: {game.rotateWinds ? 'On' : 'Off'}</p>
             </div>
             <div className='flex gap-2'>
-                <Dialog open={isAddPenaltyOpen} onOpenChange={() => handleDialogClose(setAddPenaltyOpen)}>
+                <Dialog open={isAddPenaltyOpen} onOpenChange={handlePenaltyDialogClose}>
                     <DialogTrigger asChild><Button variant="outline"><ShieldAlert className="mr-2 h-4 w-4" />Penalty</Button></DialogTrigger>
                     <DialogContent>
                         <DialogHeader><DialogTitle>Record Penalty</DialogTitle><DialogDescription>Select the player to be penalized.</DialogDescription></DialogHeader>
-                        <AddPenaltyForm game={game} onSubmit={handleAddPenalty} onCancel={() => handleDialogClose(setAddPenaltyOpen)} />
+                        <AddPenaltyForm game={game} onSubmit={handleAddPenalty} onCancel={() => handlePenaltyDialogClose(false)} />
                     </DialogContent>
                 </Dialog>
-                <Dialog open={isAddRoundOpen} onOpenChange={() => handleDialogClose(setAddRoundOpen)}>
+                <Dialog open={isAddRoundOpen} onOpenChange={handleRoundDialogClose}>
                     <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4" />Record Round</Button></DialogTrigger>
                     <DialogContent className="sm:max-w-[425px]">
                         <DialogHeader><DialogTitle>Record New Round</DialogTitle><DialogDescription>Enter the details of the winning hand.</DialogDescription></DialogHeader>
-                        <AddRoundForm game={game} onSubmit={handleAddRound} onCancel={() => handleDialogClose(setAddRoundOpen)} initialWinner={selectedWinner} />
+                        <AddRoundForm game={game} onSubmit={handleAddRound} onCancel={() => handleRoundDialogClose(false)} initialWinner={selectedWinner} />
                     </DialogContent>
                 </Dialog>
             </div>
