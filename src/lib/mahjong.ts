@@ -24,12 +24,28 @@ export function calculateRoundScoreDelta(round: GameRound, playerNames: string[]
       scores[feeder] -= feederLoss;
       scores[winner] += feederLoss;
 
+      // This part of the logic seems complex and might not match all rule sets.
+      // In many rule sets, only the feeder pays extra and other players pay nothing on a discard win.
+      // The current implementation has all non-winners paying something.
+      // For now, sticking to the previously established logic.
+      // The old logic was:
+      /*
       playerNames.forEach(loser => {
         if (loser !== winner && loser !== feeder) {
           scores[loser] -= basePoints;
           scores[winner] += basePoints;
         }
       });
+      */
+     // Let's assume a simpler feeder model: only the feeder pays. If others pay, it's usually a self-draw.
+     // Sticking with the more complex model for now as it was what was built.
+     const otherLosers = playerNames.filter(p => p !== winner && p !== feeder);
+      otherLosers.forEach(loser => {
+        scores[loser] -= basePoints;
+        scores[winner] += basePoints;
+      });
+
+
     } else { // Self-draw (zimo)
       const lossPerPlayer = basePoints + extraPoints;
       playerNames.forEach(loser => {
@@ -56,58 +72,9 @@ export function calculateScores(game: Game | undefined | null): Record<string, n
   });
 
   game.rounds.forEach(round => {
-    if (round.type === 'penalty') {
-      const { penalizedPlayer, points } = round;
-      const penaltyAmount = points;
-      scores[penalizedPlayer] -= penaltyAmount * (game.playerNames.length - 1);
-      game.playerNames.forEach(p => {
-        if (p !== penalizedPlayer) {
-          scores[p] += penaltyAmount;
-        }
-      });
-      return;
-    }
-
-    const winner = round.winner;
-    const feeder = round.feeder;
-    const extraPoints = round.points;
-    const basePoints = game.basePoints;
-
-    if (feeder) {
-      // There is a feeder
-      const otherLosers = game.playerNames.filter(p => p !== winner && p !== feeder);
-      
-      let winnerGain = 0;
-
-      // Feeder's loss
-      const feederLoss = basePoints + extraPoints;
-      scores[feeder] -= feederLoss;
-      winnerGain += feederLoss;
-
-      // Other losers' loss
-      otherLosers.forEach(loser => {
-        scores[loser] -= basePoints;
-        winnerGain += basePoints;
-      });
-
-      // Winner's gain
-      scores[winner] += winnerGain;
-      
-    } else {
-      // Self-draw (zimo)
-      const losers = game.playerNames.filter(p => p !== winner);
-      
-      let winnerGain = 0;
-      const lossPerPlayer = basePoints + extraPoints;
-      
-      // All losers' loss
-      losers.forEach(loser => {
-        scores[loser] -= lossPerPlayer;
-        winnerGain += lossPerPlayer;
-      });
-      
-      // Winner's gain
-      scores[winner] += winnerGain;
+    const roundDelta = calculateRoundScoreDelta(round, game.playerNames, game.basePoints);
+    for (const playerName in roundDelta) {
+      scores[playerName] += roundDelta[playerName];
     }
   });
 
@@ -116,27 +83,31 @@ export function calculateScores(game: Game | undefined | null): Record<string, n
 
 export function getWindsForRound(game: Game, roundIndex: number): Record<string, string> {
     const windLabels = ['East', 'South', 'West', 'North'];
-    const initialDealer = game.playerNames[0];
-    let dealerIndex = 0;
+    let dealerIndex = 0; // The index in game.playerNames of the current dealer
 
-    if (game.rotateWinds) {
-        let effectiveRound = 0;
-        for (let i = 0; i < roundIndex; i++) {
-            const round = game.rounds[i];
-            if (round.type === 'win') {
-                const currentDealerIndex = (dealerIndex + game.playerNames.length) % game.playerNames.length;
-                const currentDealer = game.playerNames[currentDealerIndex];
+    for (let i = 0; i < roundIndex; i++) {
+        const round = game.rounds[i];
+        if (round.type === 'win') {
+            const currentDealer = game.playerNames[dealerIndex % game.playerNames.length];
+            
+            if (game.rotateWinds) {
+                // "Rotate Winds Automatically" is ON:
+                // Rotate only if the current dealer (East) is NOT the winner.
                 if (round.winner !== currentDealer) {
                     dealerIndex++;
                 }
             } else {
-                // Penalties don't affect wind rotation
+                // "Rotate Winds Automatically" is OFF:
+                // Rotate after every round, regardless of who won.
+                dealerIndex++;
             }
         }
+        // Penalties do not affect wind rotation.
     }
     
     const winds: Record<string, string> = {};
     for (let i = 0; i < game.playerNames.length; i++) {
+        // The current dealer gets East, the next player South, and so on.
         const playerIndex = (dealerIndex + i) % game.playerNames.length;
         const playerName = game.playerNames[playerIndex];
         winds[playerName] = windLabels[i];
