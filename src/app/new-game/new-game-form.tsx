@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import { Game } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect } from 'react';
+import { format } from 'date-fns';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Game name is required'),
@@ -36,7 +37,7 @@ export default function NewGameForm() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: '',
+      name: format(new Date(), 'yyyy-MM-dd HH:mm'),
       player1: '',
       player2: '',
       player3: '',
@@ -44,6 +45,24 @@ export default function NewGameForm() {
       basePoints: 8,
     },
   });
+
+  useEffect(() => {
+    try {
+        const storedGames = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (storedGames) {
+            const games: Game[] = JSON.parse(storedGames);
+            if (games.length > 0) {
+                const lastGame = games.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+                form.setValue('player1', lastGame.playerNames[0]);
+                form.setValue('player2', lastGame.playerNames[1]);
+                form.setValue('player3', lastGame.playerNames[2]);
+                form.setValue('player4', lastGame.playerNames[3]);
+            }
+        }
+    } catch (error) {
+        console.error("Failed to load last game's players", error);
+    }
+  }, [form]);
 
   const { errors } = form.formState;
 
@@ -101,10 +120,10 @@ export default function NewGameForm() {
           )}
         />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField control={form.control} name="player1" render={({ field }) => (<FormItem><FormLabel>Player 1</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-            <FormField control={form.control} name="player2" render={({ field }) => (<FormItem><FormLabel>Player 2</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-            <FormField control={form.control} name="player3" render={({ field }) => (<FormItem><FormLabel>Player 3</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-            <FormField control={form.control} name="player4" render={({ field }) => (<FormItem><FormLabel>Player 4</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+            <FormField control={form.control} name="player1" render={({ field }) => (<FormItem><FormLabel>Player 1 (East)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+            <FormField control={form.control} name="player2" render={({ field }) => (<FormItem><FormLabel>Player 2 (South)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+            <FormField control={form.control} name="player3" render={({ field }) => (<FormItem><FormLabel>Player 3 (West)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+            <FormField control={form.control} name="player4" render={({ field }) => (<FormItem><FormLabel>Player 4 (North)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
         </div>
         <FormField
           control={form.control}

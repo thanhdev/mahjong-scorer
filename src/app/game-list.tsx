@@ -6,12 +6,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Game } from '@/lib/types';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { Trash2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { useToast } from '@/hooks/use-toast';
 
 const LOCAL_STORAGE_KEY = 'mahjong-scorer-games';
 
 export default function GameList() {
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
     try {
@@ -25,6 +30,18 @@ export default function GameList() {
       setLoading(false);
     }
   }, []);
+
+  const handleDeleteGame = (gameId: string) => {
+    try {
+        const updatedGames = games.filter(g => g.id !== gameId);
+        setGames(updatedGames);
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedGames));
+        toast({ title: "Game Deleted", description: "The game has been removed."});
+    } catch (error) {
+        console.error("Failed to delete game", error);
+        toast({ variant: "destructive", title: "Error", description: "Failed to delete the game." });
+    }
+  }
 
   if (loading) {
     return (
@@ -57,24 +74,45 @@ export default function GameList() {
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       {games.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(game => (
-        <Link href={`/game/${game.id}`} key={game.id} className="block">
-          <Card className="hover:shadow-lg hover:border-primary/50 transition-all duration-300 h-full">
-            <CardHeader>
-              <CardTitle className="font-headline">{game.name}</CardTitle>
-              <CardDescription>Created on {format(new Date(game.createdAt), 'PPP')}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div>
-                <p className="font-semibold text-sm mb-2 text-primary/90">Players:</p>
-                <p className="text-muted-foreground text-sm">{game.playerNames.join(', ')}</p>
-              </div>
-              <div className="mt-4">
-                <p className="font-semibold text-sm mb-2 text-primary/90">Base Points:</p>
-                <p className="text-muted-foreground text-sm">{game.basePoints}</p>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
+        <Card key={game.id} className="flex flex-col justify-between hover:shadow-lg hover:border-primary/50 transition-all duration-300">
+            <Link href={`/game/${game.id}`} className="block h-full">
+                <CardHeader>
+                <CardTitle className="font-headline">{game.name}</CardTitle>
+                <CardDescription>Created on {format(new Date(game.createdAt), 'PPP')}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                <div>
+                    <p className="font-semibold text-sm mb-2 text-primary/90">Players:</p>
+                    <p className="text-muted-foreground text-sm">{game.playerNames.join(', ')}</p>
+                </div>
+                <div className="mt-4">
+                    <p className="font-semibold text-sm mb-2 text-primary/90">Base Points:</p>
+                    <p className="text-muted-foreground text-sm">{game.basePoints}</p>
+                </div>
+                </CardContent>
+            </Link>
+             <div className="p-4 pt-0 text-right">
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80">
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Game?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Are you sure you want to delete the game "{game.name}"? This action cannot be undone.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDeleteGame(game.id)}>Delete</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </div>
+        </Card>
       ))}
     </div>
   );
