@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useForm } from 'react-hook-form';
@@ -25,7 +26,7 @@ export default function AddPenaltyForm({ game, onSubmit, onCancel }: AddPenaltyF
     resolver: zodResolver(formSchema),
     defaultValues: {
       penalizedPlayer: '',
-      points: game.basePoints,
+      points: 1,
     },
   });
 
@@ -66,7 +67,7 @@ export default function AddPenaltyForm({ game, onSubmit, onCancel }: AddPenaltyF
           name="points"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Penalty Base Points (x3)</FormLabel>
+              <FormLabel>Penalty Points</FormLabel>
               <FormControl>
                 <Input type="number" min="1" {...field} />
               </FormControl>
@@ -75,7 +76,7 @@ export default function AddPenaltyForm({ game, onSubmit, onCancel }: AddPenaltyF
           )}
         />
         <p className="text-sm text-muted-foreground">
-            The penalized player will pay 3 times these points to each other player.
+            The penalized player will pay these points to each other player.
         </p>
         <div className="flex justify-end gap-2 pt-4">
           <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>

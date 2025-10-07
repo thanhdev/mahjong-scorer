@@ -1,3 +1,4 @@
+
 import type { Game, GameRound } from './types';
 
 export function calculateScores(game: Game | undefined | null): Record<string, number> {
@@ -13,7 +14,7 @@ export function calculateScores(game: Game | undefined | null): Record<string, n
   game.rounds.forEach(round => {
     if (round.type === 'penalty') {
       const { penalizedPlayer, points } = round;
-      const penaltyAmount = 3 * points;
+      const penaltyAmount = points;
       scores[penalizedPlayer] -= penaltyAmount * (game.playerNames.length - 1);
       game.playerNames.forEach(p => {
         if (p !== penalizedPlayer) {

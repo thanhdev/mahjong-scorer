@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -173,9 +174,9 @@ export default function GameView({ gameId }: { gameId: string }) {
                         const wind = currentWinds[name];
                         const gridPosition = [
                             'col-start-1 row-start-2', // West
-                            'col-start-2 row-start-3', // North (bottom)
+                            'col-start-2 row-start-1', // North (top)
                             'col-start-3 row-start-2', // East
-                            'col-start-2 row-start-1', // South (top)
+                            'col-start-2 row-start-3', // South (bottom)
                         ][index];
 
                         return (
@@ -219,7 +220,7 @@ export default function GameView({ gameId }: { gameId: string }) {
                             <>
                                 <TableCell><Badge variant="destructive">Penalty</Badge></TableCell>
                                 <TableCell><b>{round.penalizedPlayer}</b> was penalized</TableCell>
-                                <TableCell>{round.points} (x3)</TableCell>
+                                <TableCell>{round.points}</TableCell>
                             </>
                         )}
                       <TableCell className="text-right">
