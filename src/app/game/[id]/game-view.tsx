@@ -128,12 +128,13 @@ export default function GameView({ gameId }: { gameId: string }) {
     );
   }
 
-  const playerOrder = [
-    game.playerNames.find(p => currentWinds[p] === 'West'),
-    game.playerNames.find(p => currentWinds[p] === 'North'),
-    game.playerNames.find(p => currentWinds[p] === 'East'),
-    game.playerNames.find(p => currentWinds[p] === 'South'),
-  ].filter(Boolean) as string[];
+  // Player positions are fixed based on their initial order.
+  const playerPositions: { [key: string]: string } = {
+    [game.playerNames[0]]: 'col-start-3 row-start-2', // East
+    [game.playerNames[1]]: 'col-start-2 row-start-3', // South
+    [game.playerNames[2]]: 'col-start-1 row-start-2', // West
+    [game.playerNames[3]]: 'col-start-2 row-start-1', // North
+  };
 
   return (
     <div className="space-y-8 animate-in fade-in-50">
@@ -169,15 +170,10 @@ export default function GameView({ gameId }: { gameId: string }) {
             <CardHeader><CardTitle>Player Scores</CardTitle></CardHeader>
             <CardContent>
                 <div className="grid grid-cols-3 grid-rows-3 gap-4 aspect-square max-w-lg mx-auto">
-                    {playerOrder.map((name, index) => {
+                    {game.playerNames.map((name) => {
                         const score = scores[name];
                         const wind = currentWinds[name];
-                        const gridPosition = [
-                            'col-start-1 row-start-2', // West
-                            'col-start-2 row-start-1', // North (top)
-                            'col-start-3 row-start-2', // East
-                            'col-start-2 row-start-3', // South (bottom)
-                        ][index];
+                        const gridPosition = playerPositions[name];
 
                         return (
                             <div key={name} className={cn('flex items-center justify-center', gridPosition)}>
