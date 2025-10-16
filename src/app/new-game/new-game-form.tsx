@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useEffect } from 'react';
 import { format } from 'date-fns';
 import { Switch } from '@/components/ui/switch';
+import { FormDescription } from '@/components/ui/form';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Game name is required'),
@@ -62,6 +63,7 @@ export default function NewGameForm() {
                 form.setValue('player3', lastGame.initialPlayerNames[2]);
                 form.setValue('player4', lastGame.initialPlayerNames[3]);
                 form.setValue('rotateWinds', lastGame.rotateWinds);
+                form.setValue('basePoints', lastGame.basePoints);
             }
         }
     } catch (error) {
@@ -131,7 +133,7 @@ export default function NewGameForm() {
             <FormField control={form.control} name="player3" render={({ field }) => (<FormItem><FormLabel>Player 3 (West)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
             <FormField control={form.control} name="player4" render={({ field }) => (<FormItem><FormLabel>Player 4 (North)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
         </div>
-        <div className="flex justify-between items-center gap-8">
+        <div className="grid md:grid-cols-2 gap-8">
             <FormField
             control={form.control}
             name="basePoints"
@@ -149,14 +151,17 @@ export default function NewGameForm() {
             control={form.control}
             name="rotateWinds"
             render={({ field }) => (
-                <FormItem className="flex flex-col items-start gap-2 pt-6">
-                    <FormLabel>Rotate Winds Automatically</FormLabel>
+                <FormItem className="flex flex-col items-start gap-2 pt-2">
+                    <FormLabel>Keep East's Seat on Win</FormLabel>
                     <FormControl>
                         <Switch
                         checked={field.value}
                         onCheckedChange={field.onChange}
                         />
                     </FormControl>
+                     <FormDescription>
+                        If on, the dealer does not change if they win. If off, the dealer always rotates.
+                    </FormDescription>
                 </FormItem>
             )}
             />
