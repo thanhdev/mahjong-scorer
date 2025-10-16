@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useForm } from 'react-hook-form';
@@ -56,10 +57,10 @@ export default function NewGameForm() {
             const games: Game[] = JSON.parse(storedGames);
             if (games.length > 0) {
                 const lastGame = games.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-                form.setValue('player1', lastGame.playerNames[0]);
-                form.setValue('player2', lastGame.playerNames[1]);
-                form.setValue('player3', lastGame.playerNames[2]);
-                form.setValue('player4', lastGame.playerNames[3]);
+                form.setValue('player1', lastGame.initialPlayerNames[0]);
+                form.setValue('player2', lastGame.initialPlayerNames[1]);
+                form.setValue('player3', lastGame.initialPlayerNames[2]);
+                form.setValue('player4', lastGame.initialPlayerNames[3]);
                 form.setValue('rotateWinds', lastGame.rotateWinds);
             }
         }
@@ -85,10 +86,10 @@ export default function NewGameForm() {
         const newGame: Game = {
             id: crypto.randomUUID(),
             name: values.name.trim(),
-            playerNames: [values.player1.trim(), values.player2.trim(), values.player3.trim(), values.player4.trim()],
+            initialPlayerNames: [values.player1.trim(), values.player2.trim(), values.player3.trim(), values.player4.trim()],
             basePoints: values.basePoints,
             rotateWinds: values.rotateWinds,
-            rounds: [],
+            events: [],
             createdAt: new Date().toISOString(),
         };
 

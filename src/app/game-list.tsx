@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -10,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Trash2 } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
+import { getAllPlayerNames } from '@/lib/mahjong';
 
 const LOCAL_STORAGE_KEY = 'mahjong-scorer-games';
 
@@ -83,7 +85,7 @@ export default function GameList() {
                 <CardContent>
                 <div>
                     <p className="font-semibold text-sm mb-2 text-primary/90">Players:</p>
-                    <p className="text-muted-foreground text-sm">{game.playerNames.join(', ')}</p>
+                    <p className="text-muted-foreground text-sm">{getAllPlayerNames(game).join(', ')}</p>
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-4">
                     <div>

@@ -3,16 +3,17 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Game, GameRound, PenaltyRound, Round } from '@/lib/types';
-import { calculateScores, getWindsForRound, calculateRoundScoreDelta } from '@/lib/mahjong';
+import { Game, GameEvent, PenaltyRound, Round, SeatChange } from '@/lib/types';
+import { calculateScores, getWindsForRound, calculateRoundScoreDelta, getAllPlayerNames, getActivePlayersForRound } from '@/lib/mahjong';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { PlusCircle, Trash2, ArrowLeft, ShieldAlert } from 'lucide-react';
+import { PlusCircle, Trash2, ArrowLeft, ShieldAlert, Replace } from 'lucide-react';
 import AddRoundForm from './add-round-form';
 import AddPenaltyForm from './add-penalty-form';
+import ChangeSeatForm from './change-seat-form';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -29,6 +30,7 @@ export default function GameView({ gameId }: { gameId: string }) {
   const [loading, setLoading] = useState(true);
   const [isAddRoundOpen, setAddRoundOpen] = useState(false);
   const [isAddPenaltyOpen, setAddPenaltyOpen] = useState(false);
+  const [isChangeSeatOpen, setChangeSeatOpen] = useState(false);
   const [selectedWinner, setSelectedWinner] = useState<string | undefined>(undefined);
 
   useEffect(() => {
@@ -38,11 +40,19 @@ export default function GameView({ gameId }: { gameId: string }) {
         const games: Game[] = JSON.parse(storedGames);
         const currentGame = games.find(g => g.id === gameId);
         if (currentGame) {
-          // Quick migration for old game data
+          // Migration for old data structure
+          if (currentGame.rounds && !currentGame.events) {
+            currentGame.events = currentGame.rounds;
+            delete currentGame.rounds;
+          }
+          if (!currentGame.initialPlayerNames && (currentGame as any).playerNames) {
+            currentGame.initialPlayerNames = (currentGame as any).playerNames;
+          }
+
           const migratedGame = {
               ...currentGame,
               rotateWinds: currentGame.rotateWinds ?? true,
-              rounds: currentGame.rounds.map(r => ({...r, type: (r as any).type || 'win'}))
+              events: currentGame.events.map(e => ({...e, type: (e as any).type || 'win'}))
           }
           setGame(migratedGame);
         } else {
@@ -60,14 +70,24 @@ export default function GameView({ gameId }: { gameId: string }) {
     }
   }, [gameId, router, toast]);
 
+  const allPlayerNames = useMemo(() => game ? getAllPlayerNames(game) : [], [game]);
   const scores = useMemo(() => calculateScores(game), [game]);
-  const currentWinds = useMemo(() => game ? getWindsForRound(game, game.rounds.length) : {}, [game]);
+
+  const { winds: currentWinds, activePlayers } = useMemo(() => {
+    if (!game) return { winds: {}, activePlayers: [] };
+    return getWindsForRound(game, game.events.length);
+  }, [game]);
   
   const scoreHistory = useMemo(() => {
     if (!game) return [];
-    return game.rounds.map(round => calculateRoundScoreDelta(round, game.playerNames, game.basePoints));
+    return game.events
+        .filter(e => e.type === 'win' || e.type === 'penalty')
+        .map((event, index) => {
+            const roundNumber = game.events.indexOf(event);
+            const activePlayersForRound = getActivePlayersForRound(game, roundNumber);
+            return calculateRoundScoreDelta(event, activePlayersForRound, game.basePoints)
+        });
   }, [game]);
-
 
   const updateGameInStorage = (updatedGame: Game) => {
     try {
@@ -85,43 +105,51 @@ export default function GameView({ gameId }: { gameId: string }) {
     }
   };
 
-  const handleAddRound = (newRoundData: Omit<Round, 'id' | 'type'>) => {
+  const handleAddEvent = (newEvent: GameEvent) => {
     if (!game) return;
-    const newRound: Round = { ...newRoundData, id: crypto.randomUUID(), type: 'win' };
-    const updatedGame = { ...game, rounds: [...game.rounds, newRound] };
+    const updatedGame = { ...game, events: [...game.events, newEvent] };
     updateGameInStorage(updatedGame);
+  };
+  
+  const handleAddRound = (newRoundData: Omit<Round, 'id' | 'type'>) => {
+    const newRound: Round = { ...newRoundData, id: crypto.randomUUID(), type: 'win' };
+    handleAddEvent(newRound);
     setAddRoundOpen(false);
     setSelectedWinner(undefined);
   };
   
   const handleAddPenalty = (newPenaltyData: Omit<PenaltyRound, 'id' | 'type'>) => {
-    if (!game) return;
     const newPenalty: PenaltyRound = { ...newPenaltyData, id: crypto.randomUUID(), type: 'penalty' };
-    const updatedGame = { ...game, rounds: [...game.rounds, newPenalty] };
-    updateGameInStorage(updatedGame);
+    handleAddEvent(newPenalty);
     setAddPenaltyOpen(false);
   }
 
-  const handleDeleteRound = (roundId: string) => {
+  const handleChangeSeat = (seatChangeData: Omit<SeatChange, 'id' | 'type'>) => {
+    const newSeatChange: SeatChange = { ...seatChangeData, id: crypto.randomUUID(), type: 'seatChange' };
+    handleAddEvent(newSeatChange);
+    setChangeSeatOpen(false);
+  }
+
+  const handleDeleteEvent = (eventId: string) => {
     if (!game) return;
-    const updatedGame = { ...game, rounds: game.rounds.filter(r => r.id !== roundId) };
+    const updatedGame = { ...game, events: game.events.filter(e => e.id !== eventId) };
     updateGameInStorage(updatedGame);
   };
 
   const handlePlayerCardClick = (playerName: string) => {
-    setSelectedWinner(playerName);
-    setAddRoundOpen(true);
-  }
-
-  const handleRoundDialogClose = (open: boolean) => {
-    setAddRoundOpen(open);
-    if(!open) {
-        setSelectedWinner(undefined);
+    if(activePlayers.includes(playerName)) {
+        setSelectedWinner(playerName);
+        setAddRoundOpen(true);
+    } else {
+        toast({ title: "Inactive Player", description: "This player is not currently in the game.", variant: "destructive" });
     }
   }
 
-  const handlePenaltyDialogClose = (open: boolean) => {
-    setAddPenaltyOpen(open);
+  const handleDialogClose = (setter: React.Dispatch<React.SetStateAction<boolean>>, open: boolean) => {
+    setter(open);
+    if(!open && isAddRoundOpen) {
+        setSelectedWinner(undefined);
+    }
   }
   
   if (loading || !game) {
@@ -134,11 +162,11 @@ export default function GameView({ gameId }: { gameId: string }) {
     );
   }
 
-  const playerPositions: { [key: string]: string } = {
-    [game.playerNames[0]]: 'col-start-3 row-start-2', // East
-    [game.playerNames[1]]: 'col-start-2 row-start-3', // South
-    [game.playerNames[2]]: 'col-start-1 row-start-2', // West
-    [game.playerNames[3]]: 'col-start-2 row-start-1', // North
+  const playerPositions: { [key: number]: string } = {
+    0: 'col-start-3 row-start-2', // East seat
+    1: 'col-start-2 row-start-3', // South seat
+    2: 'col-start-1 row-start-2', // West seat
+    3: 'col-start-2 row-start-1', // North seat
   };
 
   return (
@@ -153,18 +181,25 @@ export default function GameView({ gameId }: { gameId: string }) {
                 <p className="text-muted-foreground">Base Points: {game.basePoints} / Automatic Wind Rotation: {game.rotateWinds ? 'On' : 'Off'}</p>
             </div>
             <div className='flex gap-2'>
-                <Dialog open={isAddPenaltyOpen} onOpenChange={handlePenaltyDialogClose}>
+                <Dialog open={isChangeSeatOpen} onOpenChange={(open) => handleDialogClose(setChangeSeatOpen, open)}>
+                    <DialogTrigger asChild><Button variant="outline"><Replace className="mr-2 h-4 w-4" />Change Seat</Button></DialogTrigger>
+                    <DialogContent>
+                        <DialogHeader><DialogTitle>Change Player</DialogTitle><DialogDescription>Select player to leave and enter new player's name.</DialogDescription></DialogHeader>
+                        <ChangeSeatForm game={game} activePlayers={activePlayers} onSubmit={handleChangeSeat} onCancel={() => setChangeSeatOpen(false)} />
+                    </DialogContent>
+                </Dialog>
+                 <Dialog open={isAddPenaltyOpen} onOpenChange={(open) => handleDialogClose(setAddPenaltyOpen, open)}>
                     <DialogTrigger asChild><Button variant="outline"><ShieldAlert className="mr-2 h-4 w-4" />Penalty</Button></DialogTrigger>
                     <DialogContent>
                         <DialogHeader><DialogTitle>Record Penalty</DialogTitle><DialogDescription>Select the player to be penalized.</DialogDescription></DialogHeader>
-                        <AddPenaltyForm game={game} onSubmit={handleAddPenalty} onCancel={() => handlePenaltyDialogClose(false)} />
+                        <AddPenaltyForm game={{...game, playerNames: activePlayers}} onSubmit={handleAddPenalty} onCancel={() => setAddPenaltyOpen(false)} />
                     </DialogContent>
                 </Dialog>
-                <Dialog open={isAddRoundOpen} onOpenChange={handleRoundDialogClose}>
+                <Dialog open={isAddRoundOpen} onOpenChange={(open) => handleDialogClose(setAddRoundOpen, open)}>
                     <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4" />Record Round</Button></DialogTrigger>
                     <DialogContent className="sm:max-w-[425px]">
                         <DialogHeader><DialogTitle>Record New Round</DialogTitle><DialogDescription>Enter the details of the winning hand.</DialogDescription></DialogHeader>
-                        <AddRoundForm game={game} onSubmit={handleAddRound} onCancel={() => handleRoundDialogClose(false)} initialWinner={selectedWinner} />
+                        <AddRoundForm game={{...game, playerNames: activePlayers}} onSubmit={handleAddRound} onCancel={() => handleDialogClose(setAddRoundOpen, false)} initialWinner={selectedWinner} />
                     </DialogContent>
                 </Dialog>
             </div>
@@ -175,10 +210,34 @@ export default function GameView({ gameId }: { gameId: string }) {
             <CardHeader><CardTitle>Player Scores</CardTitle></CardHeader>
             <CardContent>
                 <div className="grid grid-cols-3 grid-rows-3 gap-4 aspect-square max-w-lg mx-auto">
-                    {game.playerNames.map((name) => {
-                        const score = scores[name];
-                        const wind = currentWinds[name];
-                        const gridPosition = playerPositions[name];
+                    {activePlayers.map((name, index) => {
+                        const originalSeatIndex = game.initialPlayerNames.indexOf(activePlayers[index]);
+                        
+                        const playerAtSeatIndex = (seatIndex: number): string => {
+                            let player = game.initialPlayerNames[seatIndex];
+                            game.events.forEach(event => {
+                                if (event.type === 'seatChange' && event.seatIndex === seatIndex) {
+                                    player = event.playerIn;
+                                }
+                            });
+                            return player;
+                        }
+
+                        const playerName = activePlayers[index];
+                        const score = scores[playerName] ?? 0;
+                        const wind = currentWinds[playerName];
+                        const seatIndex = game.initialPlayerNames.findIndex((initialName, i) => {
+                           // Find the last player to occupy this seat
+                           let currentPlayerInSeat = initialName;
+                           for (const event of game.events) {
+                             if (event.type === 'seatChange' && event.seatIndex === i) {
+                               currentPlayerInSeat = event.playerIn;
+                             }
+                           }
+                           return currentPlayerInSeat === playerName;
+                        });
+
+                        const gridPosition = playerPositions[seatIndex];
 
                         return (
                             <div key={name} className={cn('flex items-center justify-center', gridPosition)}>
@@ -208,33 +267,40 @@ export default function GameView({ gameId }: { gameId: string }) {
         <TabsContent value="history">
             <Card>
             <CardContent className="pt-6">
-              {game.rounds.length > 0 ? (
+              {game.events.length > 0 ? (
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader><TableRow><TableHead>#</TableHead><TableHead>Type</TableHead><TableHead>Details</TableHead><TableHead>Points</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
                     <TableBody>
-                      {[...game.rounds].reverse().map((round, index) => (
-                        <TableRow key={round.id}>
-                            <TableCell>{game.rounds.length - index}</TableCell>
-                            {round.type === 'win' ? (
+                      {[...game.events].reverse().map((event, index) => (
+                        <TableRow key={event.id}>
+                            <TableCell>{game.events.length - index}</TableCell>
+                            {event.type === 'win' && (
                                 <>
                                     <TableCell><Badge variant="secondary">Win</Badge></TableCell>
-                                    <TableCell><b>{round.winner}</b> won from {round.feeder || 'Self-draw'}</TableCell>
-                                    <TableCell>{round.points}</TableCell>
+                                    <TableCell><b>{event.winner}</b> won from {event.feeder || 'Self-draw'}</TableCell>
+                                    <TableCell>{event.points}</TableCell>
                                 </>
-                            ) : (
+                            )}
+                             {event.type === 'penalty' && (
                                 <>
                                     <TableCell><Badge variant="destructive">Penalty</Badge></TableCell>
-                                    <TableCell><b>{round.penalizedPlayer}</b> was penalized</TableCell>
-                                    <TableCell>{round.points}</TableCell>
+                                    <TableCell><b>{event.penalizedPlayer}</b> was penalized</TableCell>
+                                    <TableCell>{event.points}</TableCell>
+                                </>
+                            )}
+                            {event.type === 'seatChange' && (
+                                <>
+                                    <TableCell><Badge>Seat Change</Badge></TableCell>
+                                    <TableCell colSpan={2}><b>{event.playerIn}</b> replaced <b>{event.playerOut}</b></TableCell>
                                 </>
                             )}
                           <TableCell className="text-right">
                             <AlertDialog>
                               <AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger>
                               <AlertDialogContent>
-                                  <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will delete the round record and recalculate all scores. This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
-                                  <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteRound(round.id)}>Delete</AlertDialogAction></AlertDialogFooter>
+                                  <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will delete the event and recalculate all scores. This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+                                  <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteEvent(event.id)}>Delete</AlertDialogAction></AlertDialogFooter>
                               </AlertDialogContent>
                             </AlertDialog>
                           </TableCell>
@@ -250,31 +316,31 @@ export default function GameView({ gameId }: { gameId: string }) {
         <TabsContent value="scores">
             <Card>
                 <CardContent className="pt-6">
-                    {game.rounds.length > 0 ? (
+                    {game.events.filter(e => e.type === 'win' || e.type === 'penalty').length > 0 ? (
                     <div className="overflow-x-auto">
                     <Table>
                         <TableHeader>
                             <TableRow>
                                 <TableHead>#</TableHead>
-                                {game.playerNames.map(name => <TableHead key={name} className="text-center">{name}</TableHead>)}
+                                {allPlayerNames.map(name => <TableHead key={name} className="text-center">{name}</TableHead>)}
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {scoreHistory.map((delta, index) => (
-                                <TableRow key={game.rounds[index].id}>
+                                <TableRow key={game.events.filter(e => e.type === 'win' || e.type === 'penalty')[index].id}>
                                     <TableCell>{index + 1}</TableCell>
-                                    {game.playerNames.map(name => (
+                                    {allPlayerNames.map(name => (
                                         <TableCell key={name} className={cn("text-center font-mono", delta[name] > 0 ? 'text-primary' : delta[name] < 0 ? 'text-destructive' : 'text-muted-foreground')}>
-                                            {delta[name] > 0 ? `+${delta[name]}` : delta[name]}
+                                            {delta[name] ? (delta[name] > 0 ? `+${delta[name]}` : delta[name]) : '0'}
                                         </TableCell>
                                     ))}
                                 </TableRow>
                             ))}
                             <TableRow className="bg-muted/50 font-bold">
                                 <TableCell>Total</TableCell>
-                                {game.playerNames.map(name => (
-                                    <TableCell key={name} className={cn("text-center", scores[name] > 0 ? 'text-primary' : scores[name] < 0 ? 'text-destructive' : 'text-muted-foreground')}>
-                                        {scores[name]}
+                                {allPlayerNames.map(name => (
+                                    <TableCell key={name} className={cn("text-center", (scores[name] ?? 0) > 0 ? 'text-primary' : (scores[name] ?? 0) < 0 ? 'text-destructive' : 'text-muted-foreground')}>
+                                        {scores[name] ?? 0}
                                     </TableCell>
                                 ))}
                             </TableRow>

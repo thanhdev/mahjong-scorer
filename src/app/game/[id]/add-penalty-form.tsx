@@ -10,13 +10,15 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Game, PenaltyRound } from '@/lib/types';
 
+type GameWithPlayerNames = Omit<Game, 'initialPlayerNames'> & { playerNames: string[] };
+
 const formSchema = z.object({
   penalizedPlayer: z.string().min(1, 'A player must be selected.'),
   points: z.coerce.number().int().min(1, 'Penalty points must be at least 1.'),
 });
 
 interface AddPenaltyFormProps {
-  game: Game;
+  game: GameWithPlayerNames;
   onSubmit: (penalty: Omit<PenaltyRound, 'id' | 'type'>) => void;
   onCancel: () => void;
 }

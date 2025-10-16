@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useForm } from 'react-hook-form';
@@ -10,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Game, Round } from '@/lib/types';
 import { useEffect } from 'react';
 
+type GameWithPlayerNames = Omit<Game, 'initialPlayerNames'> & { playerNames: string[] };
+
 const formSchema = z.object({
   winner: z.string().min(1, 'Winner is required.'),
   feeder: z.string().min(1, "Feeder selection is required."),
@@ -17,7 +20,7 @@ const formSchema = z.object({
 });
 
 interface AddRoundFormProps {
-  game: Game;
+  game: GameWithPlayerNames;
   onSubmit: (round: Omit<Round, 'id' | 'type'>) => void;
   onCancel: () => void;
   initialWinner?: string;

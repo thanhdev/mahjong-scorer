@@ -1,54 +1,100 @@
 
-import type { Game, GameRound } from './types';
+import type { Game, GameEvent, SeatChange } from './types';
 
-export function calculateRoundScoreDelta(round: GameRound, playerNames: string[], basePoints: number): Record<string, number> {
+// Gets the 4 active players for a given round number (event index)
+export function getActivePlayersForRound(game: Game, roundNumber: number): string[] {
+    let playerNames = [...game.initialPlayerNames];
+
+    const seatChangeEvents = game.events
+        .filter(event => event.type === 'seatChange' && game.events.indexOf(event) < roundNumber) as SeatChange[];
+
+    // Sort changes by their index in the events array to apply them in order
+    seatChangeEvents.sort((a, b) => game.events.indexOf(a) - game.events.indexOf(b));
+
+    seatChangeEvents.forEach(change => {
+        // Find which player is currently in the seat to be changed
+        const currentSeatHolder = playerNames[change.seatIndex];
+
+        // Ensure the change is still valid (playerOut might have been replaced already)
+        // This logic finds the *last* change for a specific seat before the target round
+        // A more robust way is to just replace whatever is at the seatIndex
+        if (currentSeatHolder === change.playerOut) {
+            playerNames[change.seatIndex] = change.playerIn;
+        } else {
+             // This case handles if multiple changes happened for the same seat.
+             // We find the last relevant change.
+             let playerToReplace = game.initialPlayerNames[change.seatIndex];
+             for(const prevChange of seatChangeEvents){
+                if(prevChange.seatIndex === change.seatIndex && game.events.indexOf(prevChange) < game.events.indexOf(change)){
+                    playerToReplace = prevChange.playerIn;
+                }
+             }
+             if(playerToReplace === change.playerOut){
+                playerNames[change.seatIndex] = change.playerIn;
+             }
+        }
+    });
+    
+    // We need to rebuild the player list from the start for each round
+    let players = [...game.initialPlayerNames];
+    for (let i = 0; i < roundNumber; i++) {
+        const event = game.events[i];
+        if (event.type === 'seatChange') {
+            players[event.seatIndex] = event.playerIn;
+        }
+    }
+
+    return players;
+}
+
+// Get all players who have ever participated in the game
+export function getAllPlayerNames(game: Game): string[] {
+    const allNames = new Set<string>(game.initialPlayerNames);
+    game.events.forEach(event => {
+        if (event.type === 'seatChange') {
+            allNames.add(event.playerIn);
+        }
+    });
+    return Array.from(allNames);
+}
+
+
+export function calculateRoundScoreDelta(event: GameEvent, activePlayers: string[], basePoints: number): Record<string, number> {
   const scores: Record<string, number> = {};
-  playerNames.forEach(name => {
+  activePlayers.forEach(name => {
     scores[name] = 0;
   });
 
-  if (round.type === 'penalty') {
-    const { penalizedPlayer, points } = round;
+  if (event.type === 'penalty') {
+    const { penalizedPlayer, points } = event;
     const penaltyAmount = points;
-    scores[penalizedPlayer] -= penaltyAmount * (playerNames.length - 1);
-    playerNames.forEach(p => {
+    if (scores.hasOwnProperty(penalizedPlayer)) {
+      scores[penalizedPlayer] -= penaltyAmount * (activePlayers.length - 1);
+    }
+    activePlayers.forEach(p => {
       if (p !== penalizedPlayer) {
         scores[p] += penaltyAmount;
       }
     });
-  } else { // 'win'
-    const { winner, feeder, points: extraPoints } = round;
+  } else if (event.type === 'win') {
+    const { winner, feeder, points: extraPoints } = event;
 
-    if (feeder) { // There is a feeder
+    if (!activePlayers.includes(winner)) return {};
+
+    if (feeder && activePlayers.includes(feeder)) { // There is a feeder
       const feederLoss = basePoints + extraPoints;
       scores[feeder] -= feederLoss;
       scores[winner] += feederLoss;
 
-      // This part of the logic seems complex and might not match all rule sets.
-      // In many rule sets, only the feeder pays extra and other players pay nothing on a discard win.
-      // The current implementation has all non-winners paying something.
-      // For now, sticking to the previously established logic.
-      // The old logic was:
-      /*
-      playerNames.forEach(loser => {
-        if (loser !== winner && loser !== feeder) {
-          scores[loser] -= basePoints;
-          scores[winner] += basePoints;
-        }
-      });
-      */
-     // Let's assume a simpler feeder model: only the feeder pays. If others pay, it's usually a self-draw.
-     // Sticking with the more complex model for now as it was what was built.
-     const otherLosers = playerNames.filter(p => p !== winner && p !== feeder);
+     const otherLosers = activePlayers.filter(p => p !== winner && p !== feeder);
       otherLosers.forEach(loser => {
         scores[loser] -= basePoints;
         scores[winner] += basePoints;
       });
 
-
     } else { // Self-draw (zimo)
       const lossPerPlayer = basePoints + extraPoints;
-      playerNames.forEach(loser => {
+      activePlayers.forEach(loser => {
         if (loser !== winner) {
           scores[loser] -= lossPerPlayer;
           scores[winner] += lossPerPlayer;
@@ -62,55 +108,70 @@ export function calculateRoundScoreDelta(round: GameRound, playerNames: string[]
 
 
 export function calculateScores(game: Game | undefined | null): Record<string, number> {
-  const scores: Record<string, number> = {};
   if (!game) {
     return {};
   }
   
-  game.playerNames.forEach(name => {
+  const allPlayerNames = getAllPlayerNames(game);
+  const scores: Record<string, number> = {};
+  allPlayerNames.forEach(name => {
     scores[name] = 0;
   });
 
-  game.rounds.forEach(round => {
-    const roundDelta = calculateRoundScoreDelta(round, game.playerNames, game.basePoints);
-    for (const playerName in roundDelta) {
-      scores[playerName] += roundDelta[playerName];
+  game.events.forEach((event, index) => {
+    if (event.type === 'win' || event.type === 'penalty') {
+        const activePlayers = getActivePlayersForRound(game, index);
+        const roundDelta = calculateRoundScoreDelta(event, activePlayers, game.basePoints);
+        for (const playerName in roundDelta) {
+            if (scores.hasOwnProperty(playerName)) {
+                 scores[playerName] += roundDelta[playerName];
+            } else {
+                scores[playerName] = roundDelta[playerName];
+            }
+        }
     }
   });
 
   return scores;
 }
 
-export function getWindsForRound(game: Game, roundIndex: number): Record<string, string> {
+export function getWindsForRound(game: Game, roundIndex: number): {winds: Record<string, string>, activePlayers: string[]} {
     const windLabels = ['East', 'South', 'West', 'North'];
-    let dealerIndex = 0; // The index in game.playerNames of the current dealer
+    let dealerSeatIndex = 0; // The index in the initialPlayerNames array of the current dealer's seat
 
-    for (let i = 0; i < roundIndex; i++) {
-        const round = game.rounds[i];
-        if (round.type === 'win') {
-            const currentDealer = game.playerNames[dealerIndex % game.playerNames.length];
+    const gameRounds = game.events.filter(e => e.type === 'win');
+    let roundsProcessed = 0;
+
+    for (let i = 0; i < roundIndex && i < game.events.length; i++) {
+        const event = game.events[i];
+
+        if (event.type === 'win') {
+            const activePlayersForThisRound = getActivePlayersForRound(game, i);
+            const currentDealer = activePlayersForThisRound[dealerSeatIndex % activePlayersForThisRound.length];
             
             if (game.rotateWinds) {
                 // "Rotate Winds Automatically" is ON:
                 // Rotate only if the current dealer (East) is NOT the winner.
-                if (round.winner !== currentDealer) {
-                    dealerIndex++;
+                if (event.winner !== currentDealer) {
+                    dealerSeatIndex++;
                 }
             } else {
                 // "Rotate Winds Automatically" is OFF:
                 // Rotate after every round, regardless of who won.
-                dealerIndex++;
+                dealerSeatIndex++;
             }
+            roundsProcessed++;
         }
-        // Penalties do not affect wind rotation.
     }
     
     const winds: Record<string, string> = {};
-    for (let i = 0; i < game.playerNames.length; i++) {
+    const finalActivePlayers = getActivePlayersForRound(game, roundIndex);
+
+    for (let i = 0; i < finalActivePlayers.length; i++) {
         // The current dealer gets East, the next player South, and so on.
-        const playerIndex = (dealerIndex + i) % game.playerNames.length;
-        const playerName = game.playerNames[playerIndex];
+        const seatIndex = (dealerSeatIndex + i) % finalActivePlayers.length;
+        const playerName = finalActivePlayers[seatIndex];
         winds[playerName] = windLabels[i];
     }
-    return winds;
+    return { winds, activePlayers: finalActivePlayers};
 }
