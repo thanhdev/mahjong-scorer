@@ -9,7 +9,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Game, SeatChange } from '@/lib/types';
-import { getAllPlayerNames } from '@/lib/mahjong';
 import { useToast } from '@/hooks/use-toast';
 
 const formSchema = z.object({
@@ -26,12 +25,12 @@ interface ChangeSeatFormProps {
 
 export default function ChangeSeatForm({ game, activePlayers, onSubmit, onCancel }: ChangeSeatFormProps) {
   const { toast } = useToast();
-  const allPlayerNames = getAllPlayerNames(game);
 
   const refinedSchema = formSchema.refine(data => {
-    return !allPlayerNames.map(p => p.toLowerCase()).includes(data.playerIn.trim().toLowerCase());
+    // A player can't join if they are already in the current set of active players.
+    return !activePlayers.map(p => p.toLowerCase()).includes(data.playerIn.trim().toLowerCase());
   }, {
-    message: "This player name is already in use in this game's history.",
+    message: "This player is already an active player in the game.",
     path: ["playerIn"],
   });
 
