@@ -50,11 +50,13 @@ export function getActivePlayersForRound(game: Game, roundNumber: number): strin
 // Get all players who have ever participated in the game
 export function getAllPlayerNames(game: Game): string[] {
     const allNames = new Set<string>(game.initialPlayerNames);
-    game.events.forEach(event => {
-        if (event.type === 'seatChange') {
-            allNames.add(event.playerIn);
-        }
-    });
+    if (game.events) {
+        game.events.forEach(event => {
+            if (event.type === 'seatChange') {
+                allNames.add(event.playerIn);
+            }
+        });
+    }
     return Array.from(allNames);
 }
 
