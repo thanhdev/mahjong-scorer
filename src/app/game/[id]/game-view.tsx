@@ -52,7 +52,7 @@ export default function GameView({ gameId }: { gameId: string }) {
           const migratedGame = {
               ...currentGame,
               rotateWinds: currentGame.rotateWinds ?? true,
-              events: currentGame.events.map(e => ({...e, type: (e as any).type || 'win'}))
+              events: currentGame.events?.map(e => ({...e, type: (e as any).type || 'win'})) ?? []
           }
           setGame(migratedGame);
         } else {
@@ -163,10 +163,10 @@ export default function GameView({ gameId }: { gameId: string }) {
   }
 
   const playerPositions: { [key: number]: string } = {
-    0: 'col-start-3 row-start-2', // East seat
-    1: 'col-start-2 row-start-3', // South seat
-    2: 'col-start-1 row-start-2', // West seat
-    3: 'col-start-2 row-start-1', // North seat
+    0: 'md:col-start-3 md:row-start-2', // East seat
+    1: 'md:col-start-2 md:row-start-3', // South seat
+    2: 'md:col-start-1 md:row-start-2', // West seat
+    3: 'md:col-start-2 md:row-start-1', // North seat
   };
 
   return (
@@ -175,28 +175,28 @@ export default function GameView({ gameId }: { gameId: string }) {
         <Button variant="ghost" asChild className="mb-4 -ml-4">
           <Link href="/"><ArrowLeft className="mr-2 h-4 w-4" />Back to Games</Link>
         </Button>
-        <div className="flex justify-between items-start">
-            <div>
+        <div className="flex flex-col md:flex-row justify-between md:items-start gap-4">
+            <div className="flex-1">
                 <h1 className="text-3xl font-bold font-headline">{game.name}</h1>
-                <p className="text-muted-foreground">Base Points: {game.basePoints} / Automatic Wind Rotation: {game.rotateWinds ? 'On' : 'Off'}</p>
+                <p className="text-muted-foreground text-sm">Base: {game.basePoints} / Keep East on Win: {game.rotateWinds ? 'On' : 'Off'}</p>
             </div>
-            <div className='flex gap-2'>
+            <div className='flex gap-2 flex-wrap'>
                 <Dialog open={isChangeSeatOpen} onOpenChange={(open) => handleDialogClose(setChangeSeatOpen, open)}>
-                    <DialogTrigger asChild><Button variant="outline"><Replace className="mr-2 h-4 w-4" />Change Seat</Button></DialogTrigger>
+                    <DialogTrigger asChild><Button variant="outline" size="sm"><Replace className="mr-2 h-4 w-4" />Change</Button></DialogTrigger>
                     <DialogContent>
                         <DialogHeader><DialogTitle>Change Player</DialogTitle><DialogDescription>Select player to leave and enter new player's name.</DialogDescription></DialogHeader>
                         <ChangeSeatForm game={game} activePlayers={activePlayers} onSubmit={handleChangeSeat} onCancel={() => setChangeSeatOpen(false)} />
                     </DialogContent>
                 </Dialog>
                  <Dialog open={isAddPenaltyOpen} onOpenChange={(open) => handleDialogClose(setAddPenaltyOpen, open)}>
-                    <DialogTrigger asChild><Button variant="outline"><ShieldAlert className="mr-2 h-4 w-4" />Penalty</Button></DialogTrigger>
+                    <DialogTrigger asChild><Button variant="outline" size="sm"><ShieldAlert className="mr-2 h-4 w-4" />Penalty</Button></DialogTrigger>
                     <DialogContent>
                         <DialogHeader><DialogTitle>Record Penalty</DialogTitle><DialogDescription>Select the player to be penalized.</DialogDescription></DialogHeader>
                         <AddPenaltyForm game={{...game, playerNames: activePlayers}} onSubmit={handleAddPenalty} onCancel={() => setAddPenaltyOpen(false)} />
                     </DialogContent>
                 </Dialog>
                 <Dialog open={isAddRoundOpen} onOpenChange={(open) => handleDialogClose(setAddRoundOpen, open)}>
-                    <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4" />Record Round</Button></DialogTrigger>
+                    <DialogTrigger asChild><Button size="sm"><PlusCircle className="mr-2 h-4 w-4" />Round</Button></DialogTrigger>
                     <DialogContent className="sm:max-w-[425px]">
                         <DialogHeader><DialogTitle>Record New Round</DialogTitle><DialogDescription>Enter the details of the winning hand.</DialogDescription></DialogHeader>
                         <AddRoundForm game={{...game, playerNames: activePlayers}} onSubmit={handleAddRound} onCancel={() => handleDialogClose(setAddRoundOpen, false)} initialWinner={selectedWinner} />
@@ -209,25 +209,49 @@ export default function GameView({ gameId }: { gameId: string }) {
         <Card>
             <CardHeader><CardTitle>Player Scores</CardTitle></CardHeader>
             <CardContent>
-                <div className="grid grid-cols-3 grid-rows-3 gap-4 aspect-square max-w-lg mx-auto">
+                <div className="grid grid-cols-2 md:grid-cols-3 md:grid-rows-3 gap-4 md:aspect-square max-w-lg mx-auto">
                     {activePlayers.map((name, index) => {
-                        const originalSeatIndex = game.initialPlayerNames.indexOf(activePlayers[index]);
-                        
-                        const playerAtSeatIndex = (seatIndex: number): string => {
-                            let player = game.initialPlayerNames[seatIndex];
-                            game.events.forEach(event => {
-                                if (event.type === 'seatChange' && event.seatIndex === seatIndex) {
-                                    player = event.playerIn;
-                                }
-                            });
-                            return player;
+                       const originalSeatIndex = game.initialPlayerNames.indexOf(name);
+                       const playerAtSeatIndex = (seatIndex: number): string => {
+                           let player = game.initialPlayerNames[seatIndex];
+                           game.events.forEach(event => {
+                               if (event.type === 'seatChange' && event.seatIndex === seatIndex) {
+                                   player = event.playerIn;
+                               }
+                           });
+                           return player;
+                       }
+
+                       const playerName = activePlayers[index];
+                       const score = scores[playerName] ?? 0;
+                       const wind = currentWinds[playerName];
+
+                       let seatIndex = -1;
+                        if (game.initialPlayerNames.includes(playerName)) {
+                            seatIndex = game.initialPlayerNames.indexOf(playerName);
+                        } else {
+                            const lastSeatChange = [...game.events].reverse().find(e => e.type === 'seatChange' && e.playerIn === playerName) as SeatChange | undefined;
+                            if (lastSeatChange) {
+                                seatIndex = lastSeatChange.seatIndex;
+                            }
                         }
 
-                        const playerName = activePlayers[index];
-                        const score = scores[playerName] ?? 0;
-                        const wind = currentWinds[playerName];
-                        const seatIndex = game.initialPlayerNames.findIndex((initialName, i) => {
-                           // Find the last player to occupy this seat
+                        // Fallback for players who joined, left, and another player took their spot
+                        if (seatIndex === -1 || activePlayers.indexOf(playerAtSeatIndex(seatIndex)) !== index) {
+                            for(let i=0; i<4; i++){
+                                let isOccupied = false;
+                                for(const p of activePlayers){
+                                    const pSeatIndex = game.initialPlayerNames.indexOf(p);
+                                    if(pSeatIndex === i) {
+                                        isOccupied = true;
+                                        break;
+                                    }
+                                }
+                                if(!isOccupied) seatIndex = i;
+                            }
+                        }
+
+                        const finalSeatIndex = game.initialPlayerNames.findIndex((initialName, i) => {
                            let currentPlayerInSeat = initialName;
                            for (const event of game.events) {
                              if (event.type === 'seatChange' && event.seatIndex === i) {
@@ -237,16 +261,16 @@ export default function GameView({ gameId }: { gameId: string }) {
                            return currentPlayerInSeat === playerName;
                         });
 
-                        const gridPosition = playerPositions[seatIndex];
+                        const gridPosition = playerPositions[finalSeatIndex];
 
                         return (
                             <div key={name} className={cn('flex items-center justify-center', gridPosition)}>
                                 <Card
-                                    className="w-40 h-28 flex flex-col justify-between p-3 text-center cursor-pointer hover:border-primary transition"
+                                    className="w-full h-28 flex flex-col justify-between p-3 text-center cursor-pointer hover:border-primary transition"
                                     onClick={() => handlePlayerCardClick(name)}
                                 >
                                     <div className='font-semibold text-muted-foreground text-sm'>{wind}</div>
-                                    <div className="font-bold text-lg">{name}</div>
+                                    <div className="font-bold text-lg truncate">{name}</div>
                                     <div className={cn("text-2xl font-bold", score > 0 ? 'text-primary' : score < 0 ? 'text-destructive' : 'text-muted-foreground')}>
                                         {score}
                                     </div>
@@ -357,3 +381,5 @@ export default function GameView({ gameId }: { gameId: string }) {
     </div>
   );
 }
+
+    
