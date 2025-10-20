@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Game, GameEvent, PenaltyRound, Round, SeatChange } from '@/lib/types';
 import { calculateScores, getWindsForRound, calculateRoundScoreDelta, getAllPlayerNames, getActivePlayersForRound } from '@/lib/mahjong';
@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { PlusCircle, Trash2, ArrowLeft, ShieldAlert, Replace } from 'lucide-react';
+import { PlusCircle, Trash2, ArrowLeft, ShieldAlert, Replace, Download } from 'lucide-react';
 import AddRoundForm from './add-round-form';
 import AddPenaltyForm from './add-penalty-form';
 import ChangeSeatForm from './change-seat-form';
@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import html2canvas from 'html2canvas';
 
 const LOCAL_STORAGE_KEY = 'mahjong-scorer-games';
 
@@ -32,6 +33,7 @@ export default function GameView({ gameId }: { gameId: string }) {
   const [isAddPenaltyOpen, setAddPenaltyOpen] = useState(false);
   const [isChangeSeatOpen, setChangeSeatOpen] = useState(false);
   const [selectedWinner, setSelectedWinner] = useState<string | undefined>(undefined);
+  const scoreTableRef = useRef<HTMLTableElement>(null);
 
   useEffect(() => {
     try {
@@ -151,6 +153,25 @@ export default function GameView({ gameId }: { gameId: string }) {
         setSelectedWinner(undefined);
     }
   }
+
+  const handleExport = () => {
+    if (scoreTableRef.current) {
+        toast({ title: 'Exporting...', description: 'Please wait while the image is being generated.' });
+        html2canvas(scoreTableRef.current, {
+            useCORS: true,
+            backgroundColor: null, // Use transparent background
+        }).then(canvas => {
+            const link = document.createElement('a');
+            link.download = `mahjong-scores-${game?.name.replace(/ /g, '_') ?? gameId}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+            toast({ title: 'Export Successful!', description: 'Your score history image has been downloaded.' });
+        }).catch(err => {
+            console.error('oops, something went wrong!', err);
+            toast({ variant: 'destructive', title: 'Export Failed', description: 'Could not generate the image.' });
+        });
+    }
+  };
   
   if (loading || !game) {
     return (
@@ -339,10 +360,17 @@ export default function GameView({ gameId }: { gameId: string }) {
         </TabsContent>
         <TabsContent value="scores">
             <Card>
-                <CardContent className="pt-6">
+                <CardHeader className="flex-row items-center justify-between">
+                    <CardTitle>Score Progression</CardTitle>
+                    <Button variant="outline" size="sm" onClick={handleExport} disabled={scoreHistory.length === 0}>
+                        <Download className="mr-2 h-4 w-4" />
+                        Export
+                    </Button>
+                </CardHeader>
+                <CardContent className="pt-0">
                     {game.events.filter(e => e.type === 'win' || e.type === 'penalty').length > 0 ? (
                     <div className="overflow-x-auto">
-                    <Table>
+                    <Table ref={scoreTableRef}>
                         <TableHeader>
                             <TableRow>
                                 <TableHead>#</TableHead>
@@ -381,5 +409,3 @@ export default function GameView({ gameId }: { gameId: string }) {
     </div>
   );
 }
-
-    
