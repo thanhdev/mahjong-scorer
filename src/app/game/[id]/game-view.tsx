@@ -159,7 +159,7 @@ export default function GameView({ gameId }: { gameId: string }) {
         toast({ title: 'Exporting...', description: 'Please wait while the image is being generated.' });
         html2canvas(scoreTableRef.current, {
             useCORS: true,
-            backgroundColor: null, // Use transparent background
+            backgroundColor: '#ffffff', // Use white background
         }).then(canvas => {
             const link = document.createElement('a');
             link.download = `mahjong-scores-${game?.name.replace(/ /g, '_') ?? gameId}.png`;
@@ -409,3 +409,5 @@ export default function GameView({ gameId }: { gameId: string }) {
     </div>
   );
 }
+
+    
