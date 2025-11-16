@@ -17,3 +17,7 @@ All game data is stored locally in your browser, so you can pick up where you le
     - **Round History**: A log of every win, penalty, and seat change.
     - **Score Progression Table**: A detailed, round-by-round breakdown of score changes for every player who has participated.
 - **Export to Image**: Download a snapshot of the final score progression table as a PNG image to easily share game results.
+- **Global Leaderboard**:
+    - **Track Lifetime Scores**: See a global ranking of all players across every game ever played.
+    - **Weekly Performance**: Monitor each player's score changes over the current week to see who's on a hot streak.
+    - **Daily Breakdown**: Get insights into performance fluctuations with a day-by-day view of score changes throughout the week.
