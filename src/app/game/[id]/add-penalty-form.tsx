@@ -6,9 +6,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Game, PenaltyRound } from '@/lib/types';
+import PlayerSelect from './player-select';
+import Numpad from './numpad';
 
 type GameWithPlayerNames = Omit<Game, 'initialPlayerNames'> & { playerNames: string[] };
 
@@ -42,23 +42,20 @@ export default function AddPenaltyForm({ game, onSubmit, onCancel }: AddPenaltyF
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4 py-4">
+      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6 py-4">
         <FormField
           control={form.control}
           name="penalizedPlayer"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Player to Penalize</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value}>
-                <FormControl>
-                  <SelectTrigger><SelectValue placeholder="Select a player" /></SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {game.playerNames.map(name => (
-                    <SelectItem key={name} value={name}>{name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FormControl>
+                <PlayerSelect
+                    players={game.playerNames}
+                    selectedPlayer={field.value}
+                    onPlayerSelect={field.onChange}
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
@@ -71,13 +68,13 @@ export default function AddPenaltyForm({ game, onSubmit, onCancel }: AddPenaltyF
             <FormItem>
               <FormLabel>Penalty Points</FormLabel>
               <FormControl>
-                <Input type="number" min="1" {...field} />
+                 <Numpad value={field.value} onChange={field.onChange} />
               </FormControl>
                <FormMessage />
             </FormItem>
           )}
         />
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground -mt-4">
             The penalized player will pay these points to each other player.
         </p>
         <div className="flex justify-end gap-2 pt-4">

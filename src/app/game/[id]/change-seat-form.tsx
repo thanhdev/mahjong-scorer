@@ -7,9 +7,9 @@ import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Game, SeatChange } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
+import PlayerSelect from './player-select';
 
 const formSchema = z.object({
   playerOut: z.string().min(1, 'A player to replace must be selected.'),
@@ -60,23 +60,20 @@ export default function ChangeSeatForm({ game, activePlayers, onSubmit, onCancel
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4 py-4">
+      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6 py-4">
         <FormField
           control={form.control}
           name="playerOut"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Player to Leave</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value}>
-                <FormControl>
-                  <SelectTrigger><SelectValue placeholder="Select a player" /></SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {activePlayers.map(name => (
-                    <SelectItem key={name} value={name}>{name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FormControl>
+                <PlayerSelect
+                    players={activePlayers}
+                    selectedPlayer={field.value}
+                    onPlayerSelect={field.onChange}
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
