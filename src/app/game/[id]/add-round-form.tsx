@@ -126,7 +126,6 @@ export default function AddRoundForm({ game, onSubmit, onCancel, initialWinner }
         />
         <div className="flex justify-end gap-2 pt-4 sticky bottom-0 bg-background py-4 px-6 -mx-6">
           <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
-          <Button type="submit">Add Round</Button>
         </div>
       </form>
     </Form>

@@ -221,7 +221,7 @@ export default function GameView({ gameId }: { gameId: string }) {
                     </DialogContent>
                 </Dialog>
                 <Dialog open={isAddRoundOpen} onOpenChange={(open) => handleDialogClose(setAddRoundOpen, open)}>
-                    <DialogTrigger asChild><Button size="sm"><PlusCircle className="mr-2 h-4 w-4" />Round</Button></DialogTrigger>
+                    <DialogTrigger asChild><Button size="sm" className="hidden"><PlusCircle className="mr-2 h-4 w-4" />Round</Button></DialogTrigger>
                     <DialogContent className="sm:max-w-[425px] grid-rows-[auto_minmax(0,1fr)_auto] p-0 max-h-[90dvh]">
                          <DialogHeader className="p-6 pb-0"><DialogTitle>Record New Round</DialogTitle><DialogDescription>Enter the details of the winning hand.</DialogDescription></DialogHeader>
                         <div className="overflow-y-auto px-6"><AddRoundForm game={{...game, playerNames: activePlayers}} onSubmit={handleAddRound} onCancel={() => handleDialogClose(setAddRoundOpen, false)} initialWinner={selectedWinner} /></div>
