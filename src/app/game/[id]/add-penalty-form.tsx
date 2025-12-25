@@ -68,7 +68,7 @@ export default function AddPenaltyForm({ game, onSubmit, onCancel }: AddPenaltyF
             <FormItem>
               <FormLabel>Penalty Points</FormLabel>
               <FormControl>
-                 <Numpad value={field.value} onChange={field.onChange} />
+                 <Numpad value={field.value} onChange={field.onChange} onSubmit={form.handleSubmit(handleFormSubmit)} />
               </FormControl>
                <FormMessage />
             </FormItem>

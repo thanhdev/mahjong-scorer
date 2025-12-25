@@ -4,14 +4,15 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { X } from "lucide-react";
+import { X, Check, Backspace } from "lucide-react";
 
 interface NumpadProps {
   value: number;
   onChange: (value: number) => void;
+  onSubmit: () => void;
 }
 
-export default function Numpad({ value, onChange }: NumpadProps) {
+export default function Numpad({ value, onChange, onSubmit }: NumpadProps) {
   const handleNumberClick = (num: number) => {
     // Append number to the end
     const newValueString = `${value}${num}`;
@@ -60,13 +61,13 @@ export default function Numpad({ value, onChange }: NumpadProps) {
             {num}
           </Button>
         ))}
-        <Button
+         <Button
             type="button"
             variant="outline"
             className="h-14 text-lg"
             onClick={handleClear}
             >
-           C
+           <X className="h-5 w-5" />
         </Button>
          <Button
             type="button"
@@ -82,9 +83,16 @@ export default function Numpad({ value, onChange }: NumpadProps) {
           className="h-14 text-lg"
           onClick={handleBackspace}
         >
-          <X className="h-5 w-5" />
+          <Backspace className="h-5 w-5" />
         </Button>
       </div>
+       <Button
+            type="button"
+            onClick={onSubmit}
+            className="w-full h-14 mt-2 bg-green-600 hover:bg-green-700"
+            >
+            <Check className="h-6 w-6 mr-2" /> Enter
+        </Button>
     </div>
   );
 }

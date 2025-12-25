@@ -118,7 +118,7 @@ export default function AddRoundForm({ game, onSubmit, onCancel, initialWinner }
             <FormItem>
               <FormLabel>Winning Hand Points (Fan)</FormLabel>
               <FormControl>
-                <Numpad value={field.value} onChange={field.onChange} />
+                <Numpad value={field.value} onChange={field.onChange} onSubmit={form.handleSubmit(handleFormSubmit)} />
               </FormControl>
               <FormMessage />
             </FormItem>
