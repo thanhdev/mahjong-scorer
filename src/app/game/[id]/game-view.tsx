@@ -79,6 +79,10 @@ export default function GameView({ gameId }: { gameId: string }) {
     if (!game) return { winds: {}, activePlayers: [] };
     return getWindsForRound(game, game.events.length);
   }, [game]);
+
+  const inactivePlayers = useMemo(() => {
+    return allPlayerNames.filter(p => !activePlayers.includes(p));
+  }, [allPlayerNames, activePlayers]);
   
   const scoreHistory = useMemo(() => {
     if (!game) return [];
@@ -206,7 +210,7 @@ export default function GameView({ gameId }: { gameId: string }) {
                     <DialogTrigger asChild><Button variant="outline" size="sm"><Replace className="mr-2 h-4 w-4" />Change</Button></DialogTrigger>
                     <DialogContent>
                         <DialogHeader><DialogTitle>Change Player</DialogTitle><DialogDescription>Select player to leave and enter new player's name.</DialogDescription></DialogHeader>
-                        <ChangeSeatForm game={game} activePlayers={activePlayers} onSubmit={handleChangeSeat} onCancel={() => setChangeSeatOpen(false)} />
+                        <ChangeSeatForm game={game} activePlayers={activePlayers} inactivePlayers={inactivePlayers} onSubmit={handleChangeSeat} onCancel={() => setChangeSeatOpen(false)} />
                     </DialogContent>
                 </Dialog>
                  <Dialog open={isAddPenaltyOpen} onOpenChange={(open) => handleDialogClose(setAddPenaltyOpen, open)}>

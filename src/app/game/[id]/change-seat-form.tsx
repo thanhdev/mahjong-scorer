@@ -19,11 +19,12 @@ const formSchema = z.object({
 interface ChangeSeatFormProps {
   game: Game;
   activePlayers: string[];
+  inactivePlayers: string[];
   onSubmit: (seatChange: Omit<SeatChange, 'id' | 'type'>) => void;
   onCancel: () => void;
 }
 
-export default function ChangeSeatForm({ game, activePlayers, onSubmit, onCancel }: ChangeSeatFormProps) {
+export default function ChangeSeatForm({ game, activePlayers, inactivePlayers, onSubmit, onCancel }: ChangeSeatFormProps) {
   const { toast } = useToast();
 
   const refinedSchema = formSchema.refine(data => {
@@ -92,6 +93,19 @@ export default function ChangeSeatForm({ game, activePlayers, onSubmit, onCancel
             </FormItem>
           )}
         />
+
+        {inactivePlayers.length > 0 && (
+            <div className="space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">Or bring back a player:</p>
+                <div className="flex flex-wrap gap-2">
+                    {inactivePlayers.map(player => (
+                        <Button key={player} type="button" variant="outline" size="sm" onClick={() => form.setValue('playerIn', player, { shouldValidate: true })}>
+                            {player}
+                        </Button>
+                    ))}
+                </div>
+            </div>
+        )}
         
         <div className="flex justify-end gap-2 pt-4">
           <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
